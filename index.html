@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aqua Pulse</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@900&display=swap');
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at bottom center, #00ffff 0%, #0500aa 40%, #000000 100%);
+      font-family: 'Almarai', sans-serif;
+      color: #00ffff;
+      user-select: none;
+    }
+    .container {
+      background: rgba(0,0,0,0.25);
+      padding: 30px 40px;
+      border-radius: 25px;
+      box-shadow: 0 0 20px 6px aqua, 0 0 40px 14px #00ffffaa;
+      text-align: center;
+      width: 700px;
+      max-width: 90vw;
+      height: 230px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .timer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 7.5rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 15px #00ffffcc, 0 0 40px #00ffffaa;
+      margin-bottom: 25px;
+    }
+    .time-box {
+      padding: 0 10px;
+    }
+    .colon {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      margin-right: 20px;
+      margin-top: 10px;
+    }
+    .dot {
+      width: 30px;
+      height: 30px;
+      background-color: #00ffff;
+      border-radius: 8px;
+      margin: 6px;
+      box-shadow: 0 0 10px #00ffffcc;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+    button {
+      flex: 1;
+      background: black;
+      color: #00ffff;
+      border: 2px solid #00ffff;
+      border-radius: 15px;
+      padding: 12px 0;
+      font-size: 1.3rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    button:hover:not(:disabled) {
+      background: #00ffff;
+      color: black;
+      box-shadow: 0 0 20px #00ffff;
+      transform: scale(1.08);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="timer">
+      <div class="time-box" id="minutes">60</div>
+      <div class="colon">
+        <div class="dot" id="pauseDot" title="Pause/Resume"></div>
+        <div class="dot" id="resetDot" title="Reset Timer"></div>
+      </div>
+      <div class="time-box" id="seconds">00</div>
+    </div>
+    <div class="controls">
+      <button id="startBtn">Start</button>
+      <button id="muteBtn">Mute</button>
+    </div>
+  </div>
+
+<script>
+  const minutesEl = document.getElementById('minutes');
+  const secondsEl = document.getElementById('seconds');
+  const startBtn = document.getElementById('startBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const pauseDot = document.getElementById('pauseDot');
+  const resetDot = document.getElementById('resetDot');
+
+  let isRunning = false;
+  let isMuted = false;
+  let isRedPhase = false;
+  let isPaused = false;
+  let interval = null;
+
+  let workDuration = 60 * 60; // 60 دقيقة
+  let breakDuration = 60;     // 60 ثانية راحة
+  let duration = workDuration;
+
+  let endTime = null;
+  let remainingTime = duration;
+  let lastTickTime = null;
+
+  let alarm = new Audio('ding-sfx-330333.mp3');
+  alarm.loop = false;
+  alarm.volume = 1;
+
+  function playAlarm(times = 5) {
+    if (times <= 0) return;
+
+    let count = 0;
+    function play() {
+      if (count < times) {
+        if (!isMuted) {
+          alarm.currentTime = 0;
+          alarm.play().catch(() => {});
+        }
+        count++;
+        setTimeout(play, 2000);
+      }
+    }
+    play();
+  }
+
+  function updateDisplay(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    minutesEl.textContent = mins.toString().padStart(2, '0');
+    secondsEl.textContent = secs.toString().padStart(2, '0');
+  }
+
+  function runCycle(durationInSec, redPhase) {
+    isRedPhase = redPhase;
+    const start = Date.now();
+    endTime = start + durationInSec * 1000;
+
+    if (isRedPhase) playAlarm(5); // بداية الراحة
+
+    let preEndAlarmPlayed = false;
+
+    interval = setInterval(() => {
+      if (!isRunning) return clearInterval(interval);
+
+      if (!isPaused) {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.ceil((endTime - now) / 1000));
+        remainingTime = remaining;
+        updateDisplay(remaining);
+
+        // رن قبل نهاية الراحة بـ 10 ثواني
+        if (isRedPhase && remaining <= 10 && !preEndAlarmPlayed) {
+          preEndAlarmPlayed = true;
+          playAlarm(5);
+        }
+
+        if (remaining <= 0) {
+          clearInterval(interval);
+
+          if (isRedPhase) {
+            duration = workDuration;
+            remainingTime = duration;
+            runCycle(duration, false);
+          } else {
+            duration = breakDuration;
+            remainingTime = duration;
+            runCycle(duration, true);
+          }
+        }
+      } else {
+        endTime += Date.now() - lastTickTime;
+      }
+
+      lastTickTime = Date.now();
+    }, 1000);
+  }
+
+  startBtn.addEventListener('click', () => {
+    if (!isRunning) {
+      isRunning = true;
+      isPaused = false;
+      runCycle(remainingTime, false);
+    }
+  });
+
+  muteBtn.addEventListener('click', () => {
+    isMuted = !isMuted;
+    muteBtn.textContent = isMuted ? 'Sound' : 'Mute';
+    if (isMuted) {
+      alarm.pause();
+      alarm.currentTime = 0;
+    }
+  });
+
+  pauseDot.addEventListener('click', () => {
+    if (isRunning) isPaused = !isPaused;
+  });
+
+  resetDot.addEventListener('click', () => {
+    clearInterval(interval);
+    isRunning = false;
+    isPaused = false;
+    isRedPhase = false;
+    duration = workDuration;
+    remainingTime = duration;
+    alarm.pause();
+    alarm.currentTime = 0;
+    updateDisplay(duration);
+  });
+
+  updateDisplay(duration);
+</script>
+</body>
+</html>
