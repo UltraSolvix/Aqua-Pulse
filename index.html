@@ -221,7 +221,11 @@ function createQuestionElement(obj, index){
     input = document.createElement('input');
     input.type = obj.type==="time"?"time":obj.type;
     input.placeholder = obj.text;
-    input.addEventListener('keypress', handleEnter);
+    if(obj.type==="time"){
+        input.addEventListener('change', handleTimeChange);
+    } else {
+        input.addEventListener('keypress', handleEnter);
+    }
     if(obj.default!==undefined) input.value=obj.default;
   }
 
@@ -271,6 +275,21 @@ function handleSelect(e){
   }
 }
 
+function handleTimeChange(e){
+  const idx = parseInt(e.target.getAttribute('data-index'));
+  const val = e.target.value;
+  if(!validateInput(val, questions[idx])){
+      alert("⚠️ إدخال غير صالح.");
+      e.target.focus();
+      return;
+  }
+  answers[idx] = val;
+  if(idx > lastAnsweredIndex){
+      lastAnsweredIndex = idx;
+      nextQuestion(idx);
+  }
+}
+
 function nextQuestion(idx){
   let nextIndex=idx+1;
   while(nextIndex<questions.length){
@@ -296,7 +315,6 @@ firstQ.querySelector('input,select').focus();
 
 // ==================== الحساب ====================
 function showResult(){
-  const a=answers.map(v=>v==="")?0:v;
   let user={};
   questions.forEach((q,i)=>{user[i]=answers[i];});
 
@@ -365,4 +383,3 @@ function showResult(){
 </script>
 </body>
 </html>
-
